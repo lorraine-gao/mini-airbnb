@@ -9,10 +9,14 @@ import { InputError, AccessError } from './error.js';
 
 import path from 'path';
 import { fileURLToPath } from 'url';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const swaggerDocument = JSON.parse(fs.readFileSync(path.join(__dirname, '../swagger.json'), 'utf-8'));
+const swaggerPath = path.join(__dirname, '../swagger.json');
+console.log("🔍 Loading Swagger JSON from:", swaggerPath);
+
+const swaggerDocument = JSON.parse(fs.readFileSync(swaggerPath, 'utf8'));
 
 import {
   getEmailFromAuthorization,
