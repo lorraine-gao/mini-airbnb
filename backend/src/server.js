@@ -268,6 +268,10 @@ app.put(
 
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 app.get('/', (req, res) => res.redirect('/docs'));
+app.get('/ping', (req, res) => {
+  res.send("Server is alive");
+});
+
 
 const port = process.env.PORT || 5033;
 
