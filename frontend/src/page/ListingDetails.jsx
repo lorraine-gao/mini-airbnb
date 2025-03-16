@@ -9,6 +9,8 @@ import ReviewForm from '../components/2.4/ReviewForm.jsx';
 import ListingInfo from '../components/2.4/ListingDatilsInfo.jsx';
 import BookingForm from '../components/2.4/BookingForm.jsx';
 
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5005';
+
 const ListingDetails = () => {
   const { listingId, nights } = useParams();
   const [listing, setListing] = React.useState(null);
@@ -25,10 +27,10 @@ const ListingDetails = () => {
   React.useEffect(() => {
     const fetchListingDetails = async () => {
       try {
-        const response = await fetch(`http://localhost:5005/listings/${listingId}`);
+        const response = await fetch(`${API_BASE_URL}/listings/${listingId}`);
         const data = await response.json();
         if (localStorage.getItem('token')) {
-          const responseBookings = await fetch('http://localhost:5005/bookings', {
+          const responseBookings = await fetch(`${API_BASE_URL}/bookings`, {
             method: 'GET',
             body: JSON.stringify(),
             headers: {
@@ -87,7 +89,7 @@ const ListingDetails = () => {
     const totalNights = (endDate - startDate) / (1000 * 60 * 60 * 24);
     const totalPrice = Number(totalNights) * listing.price;
     console.log(totalNights);
-    const response = await fetch(`http://localhost:5005/bookings/new/${listingId}`, {
+    const response = await fetch(`${API_BASE_URL}/bookings/new/${listingId}`, {
       method: 'POST',
       body: JSON.stringify({
         dateRange,
@@ -117,7 +119,7 @@ const ListingDetails = () => {
       score: Number(rating),
       content: review
     };
-    const response = await fetch(`http://localhost:5005/listings/${listingId}/review/${previousBooking[0].id}`, {
+    const response = await fetch(`${API_BASE_URL}/listings/${listingId}/review/${previousBooking[0].id}`, {
       method: 'PUT',
       body: JSON.stringify({
         review: reviewObject

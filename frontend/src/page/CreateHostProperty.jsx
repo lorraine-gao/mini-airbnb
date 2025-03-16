@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 
 import CreatePropertyForm from '../components/2.2/CreatePropertyForm.jsx';
 
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5005';
+
 const CreateHostProperty = (props) => {
   const [title, setTitle] = React.useState('');
   const [address, setAddress] = React.useState('');
@@ -74,7 +76,7 @@ const CreateHostProperty = (props) => {
       alert('Title, address, property type, amenities and thumbnail are required.');
       return;
     }
-    const response = await fetch('http://localhost:5005/listings/new', {
+    const response = await fetch(`${API_BASE_URL}/listings/new`, {
       method: 'POST',
       body: JSON.stringify({
         title, address, price, thumbnail, metadata

@@ -3,7 +3,7 @@ import { useLocation, useParams } from 'react-router-dom';
 
 import ViewBookingHistory from '../components/2.5/ViewBookingHistory';
 import ViewBookingItemInfo from '../components/2.5/ViewBookingItemInfo';
-
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5005';
 const ViewBookingRequest = (props) => {
   const { id } = useParams(); // 从 URL 获取 id
   const [bookings, setBookings] = React.useState([]); // 用于存储获取到的列表数据
@@ -14,9 +14,9 @@ const ViewBookingRequest = (props) => {
 
   const fetchData = async () => {
     try {
-      const response = await fetch('http://localhost:5005/bookings', {
+      const response = await fetch(`${API_BASE_URL}/bookings`, {
         headers: {
-          Authorization: `Bearer ${props.token}` // 确保这里使用了正确的令牌
+          Authorization: `Bearer ${props.token}`
         }
       });
       const data = await response.json();
@@ -38,7 +38,7 @@ const ViewBookingRequest = (props) => {
 
   const acceptBooking = async (id) => {
     event.preventDefault();
-    const response = await fetch(`http://localhost:5005/bookings/accept/${id}`, {
+    const response = await fetch(`${API_BASE_URL}/bookings/accept/${id}`, {
       method: 'PUT',
       headers: {
         Authorization: `Bearer ${props.token}`,
@@ -55,7 +55,7 @@ const ViewBookingRequest = (props) => {
 
   const declineBooking = async (id) => {
     event.preventDefault();
-    const response = await fetch(`http://localhost:5005/bookings/decline/${id}`, {
+    const response = await fetch(`${API_BASE_URL}/bookings/decline/${id}`, {
       method: 'PUT',
       headers: {
         Authorization: `Bearer ${props.token}`,

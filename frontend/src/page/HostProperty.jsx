@@ -6,6 +6,8 @@ import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import HostListingsBox from '../components/2.2/HostListingBox.jsx';
 
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5005';
+
 const HostProperty = (props) => {
   const navigate = useNavigate();
   const [listings, setListings] = React.useState([]); // 用于存储获取到的列表数据
@@ -13,12 +15,12 @@ const HostProperty = (props) => {
   const fetchData = async () => {
     try {
       const name = localStorage.getItem('name');
-      const response = await fetch('http://localhost:5005/listings');
+      const response = await fetch(`${API_BASE_URL}/listings`);
       const data = await response.json();
       const userOwnedListings = data.listings.filter(listing => listing.owner === name);
       // 为每个属于用户的列表项获取详细信息
       const listingsDetails = await Promise.all(userOwnedListings.map(async (listing) => {
-        const detailResponse = await fetch(`http://localhost:5005/listings/${listing.id}`);
+        const detailResponse = await fetch(`${API_BASE_URL}/listings/${listing.id}`);
         const detailData = await detailResponse.json();
         return { ...detailData, id: listing.id };
       }));
@@ -39,7 +41,7 @@ const HostProperty = (props) => {
   const deleteproperty = async (id) => {
     event.preventDefault();
     // console.log('提交床位总数：', totalBeds);
-    const response = await fetch(`http://localhost:5005/listings/${id}`, {
+    const response = await fetch(`${API_BASE_URL}/listings/${id}`, {
       method: 'DELETE',
       headers: {
         Authorization: `Bearer ${props.token}`,

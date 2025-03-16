@@ -6,6 +6,8 @@ import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5005';
+
 const EditHostProperty = (props) => {
   const { id } = useParams(); // 从 URL 获取 id
   const location = useLocation();
@@ -82,7 +84,7 @@ const EditHostProperty = (props) => {
   const navigate = useNavigate();
   const submit = async () => {
     event.preventDefault();
-    const response = await fetch(`http://localhost:5005/listings/${id}`, {
+    const response = await fetch(`${API_BASE_URL}/listings/${id}`, {
       method: 'PUT',
       body: JSON.stringify({
         title, address, price, thumbnail, metadata

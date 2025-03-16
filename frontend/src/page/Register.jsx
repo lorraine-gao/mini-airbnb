@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import RegisterForm from '../components/RegisterForm';
-
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5005';
 const Register = (props) => {
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
@@ -16,7 +16,7 @@ const Register = (props) => {
       return;
     }
 
-    const response = await fetch('http://localhost:5005/user/auth/register', {
+    const response = await fetch(`${API_BASE_URL}/user/auth/register`, {
       method: 'POST',
       body: JSON.stringify({
         email, password, name

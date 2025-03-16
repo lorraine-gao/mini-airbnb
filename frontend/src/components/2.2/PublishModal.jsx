@@ -6,7 +6,7 @@ import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import DatePickersContainer from '../Styled/DatePickersContainer.jsx';
-
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5005';
 const PublishModal = ({ itemId, open, onClose, fetchData }) => {
   const token = localStorage.getItem('token');
   const [availableNumber, setAvailableNumber] = React.useState(1); // 用于存储获取到的列表数据
@@ -34,7 +34,7 @@ const PublishModal = ({ itemId, open, onClose, fetchData }) => {
     }
     const availability = dateRanges.map(range => ({ start: range.start, end: range.end }));
     event.preventDefault();
-    const response = await fetch(`http://localhost:5005/listings/publish/${id}`, {
+    const response = await fetch(`${API_BASE_URL}/listings/publish/${id}`, {
       method: 'PUT',
       body: JSON.stringify({
         availability

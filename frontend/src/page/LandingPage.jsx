@@ -5,6 +5,8 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import SearchForm from '../components/2.3/SearchForm.jsx';
 import LandingListingBoxAndCards from '../components/2.3/LandingListingBoxAndCards.jsx';
 
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5005';
+
 const LandingPage = (props) => {
   const [listings, setListings] = React.useState([]); // 用于存储获取到的列表数据
   const [searchTerm, setSearchTerm] = React.useState('');
@@ -21,14 +23,14 @@ const LandingPage = (props) => {
     // 定义异步函数获取数据
     const fetchData = async () => {
       try {
-        const response = await fetch('http://localhost:5005/listings');
+        const response = await fetch(`${API_BASE_URL}/listings`);
         const data = await response.json();
         const listingsWithDetails = await Promise.all(data.listings.map(async (listing) => {
-          const detailResponse = await fetch(`http://localhost:5005/listings/${listing.id}`);
+          const detailResponse = await fetch(`${API_BASE_URL}/listings/${listing.id}`);
           const detailData = await detailResponse.json();
           return { ...listing, ...detailData.listing };
         }));
-        const responseBookings = await fetch('http://localhost:5005/bookings', {
+        const responseBookings = await fetch(`${API_BASE_URL}/bookings`, {
           method: 'GET',
           body: JSON.stringify(),
           headers: {
