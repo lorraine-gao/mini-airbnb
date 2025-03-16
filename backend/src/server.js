@@ -264,15 +264,6 @@ const port = process.env.PORT || 5033;
 app.get('/', (req, res) => res.redirect('/docs'));
 app.use('/docs', swaggerUi.serve, swaggerUi.setup());
 
-let configData = {};
-try {
-    const configPath = process.env.CONFIG_PATH || './config.json';
-    configData = JSON.parse(fs.readFileSync(configPath));
-} catch (error) {
-    console.error("Error! default port：5033");
-}
-
-
 const server = app.listen(port, () => {
   console.log(`Backend is now listening on port ${port}!`);
   console.log(`For API docs, navigate to http://localhost:${port}`);
