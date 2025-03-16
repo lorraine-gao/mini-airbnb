@@ -28,7 +28,7 @@ import {
   removeBooking,
   acceptBooking,
   declineBooking,
-} from './service';
+} from './service.js';
 
 const app = express();
 
