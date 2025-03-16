@@ -6,7 +6,11 @@ import cors from 'cors';
 import morgan from 'morgan';
 
 import { InputError, AccessError } from './error.js';
-const swaggerDocument = JSON.parse(fs.readFileSync(new URL('./swagger.json', import.meta.url), 'utf-8'));
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const swaggerDocument = JSON.parse(fs.readFileSync(path.join(__dirname, '../swagger.json'), 'utf-8'));
 
 import {
   getEmailFromAuthorization,
