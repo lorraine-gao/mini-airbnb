@@ -5,8 +5,8 @@ import { InputError, AccessError } from './error';
 
 const lock = new AsyncLock();
 
-const JWT_SECRET = 'giraffegiraffebeetroot';
-const DATABASE_FILE = './database.json';
+const JWT_SECRET = process.env.JWT_SECRET || 'default-secret';
+const DATABASE_FILE = process.env.DB_FILE || '/tmp/database.json';
 
 /***************************************************************
                        State Management
@@ -48,14 +48,18 @@ export const reset = () => {
 };
 
 try {
-  const data = JSON.parse(fs.readFileSync(DATABASE_FILE));
-  users = data.users;
-  listings = data.listings;
-  bookings = data.bookings;
+  if (fs.existsSync(DATABASE_FILE)) {
+    const data = JSON.parse(fs.readFileSync(DATABASE_FILE));
+    users = data.users;
+    listings = data.listings;
+    bookings = data.bookings;
+  } else {
+    console.log('WARNING: No database found, creating a new one...');
+    save();
+  }
 } catch {
-  console.log('WARNING: No database found, create a new one');
-  save();
-}
+  console.log('Failed to load database');
+}  
 
 /***************************************************************
                        Helper Functions
