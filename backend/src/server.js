@@ -7,6 +7,7 @@ import morgan from 'morgan';
 
 import { InputError, AccessError } from './error.js';
 
+import path from 'path';
 import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
