@@ -266,14 +266,10 @@ app.put(
                        Running Server
 ***************************************************************/
 
-app.get('/', (req, res) => res.redirect('/docs'));
-
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+app.get('/', (req, res) => res.redirect('/docs'));
 
 const port = process.env.PORT || 5033;
-
-app.get('/', (req, res) => res.redirect('/docs'));
-app.use('/docs', swaggerUi.serve, swaggerUi.setup());
 
 const server = app.listen(port, () => {
   console.log(`Backend is now listening on port ${port}!`);
