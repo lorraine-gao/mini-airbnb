@@ -5,7 +5,7 @@ import bodyParser from 'body-parser';
 import cors from 'cors';
 import morgan from 'morgan';
 
-import { InputError, AccessError } from './error';
+import { InputError, AccessError } from './error.js';
 import swaggerDocument from '../swagger.json';
 import {
   getEmailFromAuthorization,
