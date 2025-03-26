@@ -1,6 +1,6 @@
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
-import PublishModal from "./PublishModal";
+import PublishModal from "./PublishModal.jsx";
 import { LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import DatePickersContainer from "../Styled/DatePickersContainer.jsx";

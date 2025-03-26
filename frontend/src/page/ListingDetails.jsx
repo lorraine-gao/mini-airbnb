@@ -5,9 +5,9 @@ import { Typography, Box, CardMedia, Card, CardActions, Button } from '@mui/mate
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 
-import ReviewForm from '../components/2.4/ReviewForm.jsx';
-import ListingInfo from '../components/2.4/ListingDatilsInfo.jsx';
-import BookingForm from '../components/2.4/BookingForm.jsx';
+import ReviewForm from '../components/BookingPage/ReviewForm.jsx';
+import ListingInfo from '../components/BookingPage/ListingDatilsInfo.jsx';
+import BookingForm from '../components/BookingPage/BookingForm.jsx';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5005';
 

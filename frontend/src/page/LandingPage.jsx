@@ -2,8 +2,8 @@ import React from 'react';
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 
-import SearchForm from '../components/2.3/SearchForm.jsx';
-import LandingListingBoxAndCards from '../components/2.3/LandingListingBoxAndCards.jsx';
+import SearchForm from '../components/LandingPage/SearchForm.jsx';
+import LandingListingBoxAndCards from '../components/LandingPage/LandingListingBoxAndCards.jsx';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5005';
 

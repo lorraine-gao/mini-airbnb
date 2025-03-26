@@ -1,8 +1,8 @@
 import React from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 
-import ViewBookingHistory from '../components/2.5/ViewBookingHistory';
-import ViewBookingItemInfo from '../components/2.5/ViewBookingItemInfo';
+import ViewBookingHistory from '../components/ReviewPage/ViewBookingHistory';
+import ViewBookingItemInfo from '../components/ReviewPage/ViewBookingItemInfo';
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5005';
 const ViewBookingRequest = (props) => {
   const { id } = useParams(); // 从 URL 获取 id

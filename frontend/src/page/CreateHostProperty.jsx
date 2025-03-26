@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import CreatePropertyForm from '../components/2.2/CreatePropertyForm.jsx';
+import CreatePropertyForm from '../components/HostProperty/CreatePropertyForm.jsx';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5005';
 

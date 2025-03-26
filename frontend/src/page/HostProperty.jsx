@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import Button from '@mui/material/Button';
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
-import HostListingsBox from '../components/2.2/HostListingBox.jsx';
+import HostListingsBox from '../components/HostProperty/HostListingBox.jsx';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5005';
 
