@@ -1,7 +1,6 @@
 import fs from 'fs';
 import express from 'express';
 import admin from 'firebase-admin';
-import serviceAccount from '../serviceAccountKey.json' assert { type: 'json' };
 import swaggerUi from 'swagger-ui-express';
 import bodyParser from 'body-parser';
 import cors from 'cors';
@@ -39,6 +38,12 @@ const __dirname = path.dirname(__filename);
 
 const swaggerPath = path.join(__dirname, '../swagger.json');
 const swaggerDocument = JSON.parse(fs.readFileSync(swaggerPath, 'utf8'));
+
+
+const secretPath = '/etc/secrets/serviceAccountKey.json';
+const serviceAccount = JSON.parse(
+  fs.readFileSync(secretPath, { encoding: 'utf8' })
+);
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
