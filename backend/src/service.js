@@ -1,385 +1,257 @@
-import fs from 'fs';
+// service.js
 import jwt from 'jsonwebtoken';
-import AsyncLock from 'async-lock';
+import admin from 'firebase-admin';
+import { db } from './server.js';    // Firestore 实例
 import { InputError, AccessError } from './error.js';
 
-const lock = new AsyncLock();
-
 const JWT_SECRET = process.env.JWT_SECRET || 'default-secret';
-const DATABASE_FILE = process.env.DB_FILE || '/tmp/database.json';
 
-/***************************************************************
-                       State Management
-***************************************************************/
+/*****************************************
+              Auth Functions
+*****************************************/
 
-let users = {};
-let listings = {};
-let bookings = {};
+// Register
+export async function register(email, password, name) {
+  if (!email)   throw new InputError('Must provide an email for user registration');
+  if (!password)throw new InputError('Must provide a password for user registration');
+  if (!name)    throw new InputError('Must provide a name for user registration');
 
-const update = (users, listings, bookings) =>
-  new Promise((resolve, reject) => {
-    lock.acquire('saveData', () => {
-      try {
-        fs.writeFileSync(
-          DATABASE_FILE,
-          JSON.stringify(
-            {
-              users,
-              listings,
-              bookings,
-            },
-            null,
-            2,
-          ),
-        );
-        resolve();
-      } catch {
-        reject(new Error('Writing to database failed'));
-      }
-    });
-  });
-
-export const save = () => update(users, listings, bookings);
-export const reset = () => {
-  update({}, {}, {});
-  users = {};
-  listings = {};
-  bookings = {};
-};
-
-try {
-  if (fs.existsSync(DATABASE_FILE)) {
-    const data = JSON.parse(fs.readFileSync(DATABASE_FILE));
-    users = data.users;
-    listings = data.listings;
-    bookings = data.bookings;
-  } else {
-    console.log('WARNING: No database found, creating a new one...');
-    save();
+  const userRef = db.collection('users').doc(email);
+  const userSnap = await userRef.get();
+  if (userSnap.exists) {
+    throw new InputError('Email address already registered');
   }
-} catch {
-  console.log('Failed to load database');
-}  
 
-/***************************************************************
-                       Helper Functions
-***************************************************************/
+  await userRef.set({ name, password, sessionActive: true });
+  return jwt.sign({ email }, JWT_SECRET, { algorithm: 'HS256' });
+}
 
-const newListingId = (_) => generateId(Object.keys(listings));
-const newBookingId = (_) => generateId(Object.keys(bookings));
+// Login
+export async function login(email, password) {
+  if (!email)    throw new InputError('Must provide an email for user login');
+  if (!password) throw new InputError('Must provide a password for user login');
 
-export const resourceLock = (callback) =>
-  new Promise((resolve, reject) => {
-    lock.acquire('resourceLock', callback(resolve, reject));
-  });
-
-const randNum = (max) => Math.round(Math.random() * (max - Math.floor(max / 10)) + Math.floor(max / 10));
-const generateId = (currentList, max = 999999999) => {
-  let R = randNum(max);
-  while (currentList.includes(R)) {
-    R = randNum(max);
+  const userRef = db.collection('users').doc(email);
+  const userSnap = await userRef.get();
+  if (!userSnap.exists || userSnap.data().password !== password) {
+    throw new InputError('Invalid email or password');
   }
-  return R.toString();
-};
 
-/***************************************************************
-                       Auth Functions
-***************************************************************/
+  // 标记 sessionActive
+  await userRef.update({ sessionActive: true });
+  return jwt.sign({ email }, JWT_SECRET, { algorithm: 'HS256' });
+}
 
-export const getEmailFromAuthorization = (authorization) => {
+// Logout
+export async function logout(email) {
+  const userRef = db.collection('users').doc(email);
+  await userRef.update({ sessionActive: false });
+}
+
+// Verify token and extract email
+export function getEmailFromAuthorization(authorization) {
   try {
     const token = authorization.replace('Bearer ', '');
     const { email } = jwt.verify(token, JWT_SECRET);
-    if (!(email in users)) {
-      throw new AccessError('Invalid Token');
-    }
     return email;
   } catch {
     throw new AccessError('Invalid Token');
   }
-};
+}
 
-export const login = (email, password) =>
-  resourceLock((resolve, reject) => {
-    if (!email) {
-      return reject(new InputError('Must provide an email for user login'));
-    } else if (!password) {
-      return reject(new InputError('Must provide a password for user login'));
-    } else if (email && email in users) {
-      if (users[email].password === password) {
-        users[email].sessionActive = true;
-        resolve(jwt.sign({ email }, JWT_SECRET, { algorithm: 'HS256' }));
-      }
-    }
-    return reject(new InputError('Invalid email or password'));
+/*****************************************
+            Listing Functions
+*****************************************/
+
+// 创建新房源
+export async function addListing(title, owner, address, price, thumbnail, metadata) {
+  if (!title)      throw new InputError('Must provide a title for new listing');
+  if (!address)    throw new InputError('Must provide an address for new listing');
+  if (isNaN(price))throw new InputError('Must provide a valid price for new listing');
+  if (!thumbnail)  throw new InputError('Must provide a thumbnail for new listing');
+  if (!metadata)   throw new InputError('Must provide metadata for new listing');
+
+  // 检查同名房源
+  const dup = await db.collection('listings')
+    .where('title', '==', title).limit(1).get();
+  if (!dup.empty) {
+    throw new InputError('A listing with this title already exists');
+  }
+
+  const payload = {
+    title,
+    owner,
+    address,
+    price,
+    thumbnail,
+    metadata,
+    reviews: [],
+    availability: [],
+    published: false,
+    postedOn: null,
+  };
+  const docRef = await db.collection('listings').add(payload);
+  return docRef.id;
+}
+
+// 获取所有房源（简化视图）
+export async function getAllListings() {
+  const snap = await db.collection('listings').get();
+  return snap.docs.map(doc => {
+    const data = doc.data();
+    return {
+      id: doc.id,
+      title: data.title,
+      owner: data.owner,
+      address: data.address,
+      price: data.price,
+      thumbnail: data.thumbnail,
+      reviews: data.reviews,
+    };
   });
+}
 
-export const logout = (email) =>
-  resourceLock((resolve, reject) => {
-    users[email].sessionActive = false;
-    resolve();
+// 获取房源详情
+export async function getListingDetails(listingId) {
+  const doc = await db.collection('listings').doc(listingId).get();
+  if (!doc.exists) throw new InputError('Invalid listing ID');
+  return doc.data();
+}
+
+// 权限校验
+export async function assertOwnsListing(email, listingId) {
+  const doc = await db.collection('listings').doc(listingId).get();
+  if (!doc.exists) throw new InputError('Invalid listing ID');
+  if (doc.data().owner !== email) {
+    throw new AccessError('User does not own this Listing');
+  }
+}
+
+export async function assertOwnsBooking(email, bookingId) {
+  const bookingRef = db.collection('bookings').doc(bookingId);
+  const snap = await bookingRef.get();
+  if (!snap.exists) {
+    throw new InputError('Invalid booking ID');
+  }
+  if (snap.data().owner !== email) {
+    throw new AccessError('User does not own this booking');
+  }
+}
+
+// 更新房源
+export async function updateListing(listingId, title, address, thumbnail, price, metadata) {
+  const updates = {};
+  if (title)    updates.title = title;
+  if (address)  updates.address = address;
+  if (thumbnail)updates.thumbnail = thumbnail;
+  if (price)    updates.price = price;
+  if (metadata) updates.metadata = metadata;
+
+  await db.collection('listings').doc(listingId).update(updates);
+}
+
+// 删除房源
+export async function removeListing(listingId) {
+  await db.collection('listings').doc(listingId).delete();
+}
+
+// 发布房源
+export async function publishListing(listingId, availability) {
+  if (!availability) throw new InputError('Must provide listing availability');
+  await db.collection('listings').doc(listingId).update({
+    availability,
+    published: true,
+    postedOn: new Date().toISOString(),
   });
+}
 
-export const register = (email, password, name) =>
-  resourceLock((resolve, reject) => {
-    if (!email) {
-      return reject(new InputError('Must provide an email for user registration'));
-    } else if (!password) {
-      return reject(new InputError('Must provide a password for user registration'));
-    } else if (!name) {
-      return reject(new InputError('Must provide a name for user registration'));
-    } else if (email && email in users) {
-      return reject(new InputError('Email address already registered'));
-    } else {
-      users[email] = {
-        name,
-        password,
-        sessionActive: true,
-      };
-      const token = jwt.sign({ email }, JWT_SECRET, { algorithm: 'HS256' });
-      resolve(token);
-    }
+// 取消发布
+export async function unpublishListing(listingId) {
+  await db.collection('listings').doc(listingId).update({
+    availability: [],
+    published: false,
+    postedOn: null,
   });
+}
 
-/***************************************************************
-                       Listing Functions
-***************************************************************/
+// 留言/评分
+export async function leaveListingReview(email, listingId, bookingId, review) {
+  // 简化：只检查 listing 存在与否
+  const listingRef = db.collection('listings').doc(listingId);
+  const listingSnap = await listingRef.get();
+  if (!listingSnap.exists) throw new InputError('Invalid listing ID');
 
-const newListingPayload = (title, owner, address, price, thumbnail, metadata) => ({
-  title,
-  owner,
-  address,
-  price,
-  thumbnail,
-  metadata,
-  reviews: [],
-  availability: [],
-  published: false,
-  postedOn: null,
-});
-
-export const assertOwnsListing = (email, listingId) =>
-  resourceLock((resolve, reject) => {
-    if (!(listingId in listings)) {
-      return reject(new InputError('Invalid listing ID'));
-    } else if (listings[listingId].owner !== email) {
-      return reject(new InputError('User does not own this Listing'));
-    } else {
-      resolve();
-    }
+  // arrayUnion 方式追加 review
+  await listingRef.update({
+    reviews: admin.firestore.FieldValue.arrayUnion(review),
   });
+}
 
-export const assertOwnsBooking = (email, bookingId) =>
-  resourceLock((resolve, reject) => {
-    if (!(bookingId in bookings)) {
-      return reject(new InputError('Invalid booking ID'));
-    } else if (bookings[bookingId].owner !== email) {
-      return reject(new InputError('User does not own this booking'));
-    } else {
-      resolve();
-    }
-  });
+/*****************************************
+           Booking Functions
+*****************************************/
 
-export const addListing = (title, email, address, price, thumbnail, metadata) =>
-  resourceLock((resolve, reject) => {
-    if (title === undefined) {
-      return reject(new InputError('Must provide a title for new listing'));
-    } else if (Object.keys(listings).find((key) => listings[key].title === title) !== undefined) {
-      return reject(new InputError('A listing with this title already exists'));
-    } else if (address === undefined) {
-      return reject(new InputError('Must provide an address for new listing'));
-    } else if (price === undefined || isNaN(price)) {
-      return reject(new InputError('Must provide a valid price for new listing'));
-    } else if (thumbnail === undefined) {
-      return reject(new InputError('Must provide a thumbnail for new listing'));
-    } else if (metadata === undefined) {
-      return reject(new InputError('Must provide property details for this listing'));
-    } else {
-      const id = newListingId();
-      listings[id] = newListingPayload(title, email, address, price, thumbnail, metadata);
+// 下单
+export async function makeNewBooking(owner, dateRange, totalPrice, listingId) {
+  const listingSnap = await db.collection('listings').doc(listingId).get();
+  if (!listingSnap.exists)             throw new InputError('Invalid listing ID');
+  if (!dateRange)                      throw new InputError('Must provide a valid date range');
+  if (isNaN(totalPrice) || totalPrice<0) throw new InputError('Must provide a valid total price');
+  if (listingSnap.data().owner === owner) throw new InputError('Cannot book your own listing');
+  if (!listingSnap.data().published)   throw new InputError('Cannot book an unpublished listing');
 
-      resolve(id);
-    }
-  });
+  const payload = {
+    owner,
+    dateRange,
+    totalPrice,
+    listingId,
+    status: 'pending'
+  };
+  const docRef = await db.collection('bookings').add(payload);
+  return docRef.id;
+}
 
-export const getListingDetails = (listingId) =>
-  resourceLock((resolve, reject) => {
-    resolve({
-      ...listings[listingId],
-    });
-  });
+// 获取所有订单
+export async function getAllBookings() {
+  const snap = await db.collection('bookings').get();
+  return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+}
 
-export const getAllListings = () =>
-  resourceLock((resolve, reject) => {
-    resolve(
-      Object.keys(listings).map((key) => ({
-        id: parseInt(key, 10),
-        title: listings[key].title,
-        owner: listings[key].owner,
-        address: listings[key].address,
-        thumbnail: listings[key].thumbnail,
-        price: listings[key].price,
-        reviews: listings[key].reviews,
-      })),
-    );
-  });
+// 删除订单
+export async function removeBooking(bookingId) {
+  await db.collection('bookings').doc(bookingId).delete();
+}
 
-export const updateListing = (listingId, title, address, thumbnail, price, metadata) =>
-  resourceLock((resolve, reject) => {
-    if (address) {
-      listings[listingId].address = address;
-    }
-    if (title) {
-      listings[listingId].title = title;
-    }
-    if (thumbnail) {
-      listings[listingId].thumbnail = thumbnail;
-    }
-    if (price) {
-      listings[listingId].price = price;
-    }
-    if (metadata) {
-      listings[listingId].metadata = metadata;
-    }
-    resolve();
-  });
+// 接受订单
+export async function acceptBooking(owner, bookingId) {
+  const bookingRef = db.collection('bookings').doc(bookingId);
+  const bookingSnap = await bookingRef.get();
+  if (!bookingSnap.exists) throw new InputError('Invalid booking ID');
 
-export const removeListing = (listingId) =>
-  resourceLock((resolve, reject) => {
-    delete listings[listingId];
-    resolve();
-  });
+  const { listingId, status } = bookingSnap.data();
+  const listingSnap = await db.collection('listings').doc(listingId).get();
+  if (!listingSnap.exists || listingSnap.data().owner !== owner) {
+    throw new AccessError("Cannot accept bookings for a listing that isn't yours");
+  }
+  if (status === 'accepted') throw new InputError('Booking has already been accepted');
+  if (status === 'declined') throw new InputError('Booking has already been declined');
 
-export const publishListing = (listingId, availability) =>
-  resourceLock((resolve, reject) => {
-    if (availability === undefined) {
-      return reject(new InputError('Must provide listing availability'));
-    } else if (listings[listingId].published === true) {
-      return reject(new InputError('This listing is already published'));
-    } else {
-      listings[listingId].availability = availability;
-      listings[listingId].published = true;
-      listings[listingId].postedOn = new Date().toISOString();
-      resolve();
-    }
-  });
+  await bookingRef.update({ status: 'accepted' });
+}
 
-export const unpublishListing = (listingId) =>
-  resourceLock((resolve, reject) => {
-    if (listings[listingId].published === false) {
-      return reject(new InputError('This listing is already unpublished'));
-    } else {
-      listings[listingId].availability = [];
-      listings[listingId].published = false;
-      listings[listingId].postedOn = null;
-      resolve();
-    }
-  });
+// 拒绝订单
+export async function declineBooking(owner, bookingId) {
+  const bookingRef = db.collection('bookings').doc(bookingId);
+  const bookingSnap = await bookingRef.get();
+  if (!bookingSnap.exists) throw new InputError('Invalid booking ID');
 
-export const leaveListingReview = (email, listingId, bookingId, review) =>
-  resourceLock((resolve, reject) => {
-    if (!(bookingId in bookings)) {
-      return reject(new InputError('Invalid booking ID'));
-    } else if (!(listingId in listings)) {
-      return reject(new InputError('Invalid listing ID'));
-    } else if (bookings[bookingId].owner !== email) {
-      return reject(new InputError('User has not stayed at this listing'));
-    } else if (bookings[bookingId].listingId !== listingId) {
-      return reject(new InputError('This booking is not associated with this listing ID'));
-    } else if (review === undefined) {
-      return reject(new InputError('Must provide review contents'));
-    } else {
-      listings[listingId].reviews.push(review);
-      resolve();
-    }
-  });
+  const { listingId, status } = bookingSnap.data();
+  const listingSnap = await db.collection('listings').doc(listingId).get();
+  if (!listingSnap.exists || listingSnap.data().owner !== owner) {
+    throw new AccessError("Cannot decline bookings for a listing that isn't yours");
+  }
+  if (status === 'declined') throw new InputError('Booking has already been declined');
+  if (status === 'accepted') throw new InputError('Booking has already been accepted');
 
-/***************************************************************
-                       Booking Functions
-***************************************************************/
-
-const newBookingPayload = (owner, dateRange, totalPrice, listingId) => ({
-  owner,
-  dateRange,
-  totalPrice,
-  listingId,
-  status: 'pending',
-});
-
-export const makeNewBooking = (owner, dateRange, totalPrice, listingId) =>
-  resourceLock((resolve, reject) => {
-    if (!(listingId in listings)) {
-      return reject(new InputError('Invalid listing ID'));
-    } else if (dateRange === undefined) {
-      return reject(new InputError('Must provide a valid date range for the booking'));
-    } else if (totalPrice === undefined || totalPrice < 0 || isNaN(totalPrice)) {
-      return reject(new InputError('Must provide a valid total price for this booking'));
-    } else if (listings[listingId].owner === owner) {
-      return reject(new InputError('Cannot make bookings for your own listings'));
-    } else if (listings[listingId].published === false) {
-      return reject(new InputError('Cannot make a booking for an unpublished listing'));
-    } else {
-      const id = newBookingId();
-      bookings[id] = newBookingPayload(owner, dateRange, totalPrice, listingId);
-
-      resolve(id);
-    }
-  });
-
-export const getAllBookings = () =>
-  resourceLock((resolve, reject) => {
-    resolve(
-      Object.keys(bookings).map((key) => ({
-        id: parseInt(key, 10),
-        owner: bookings[key].owner,
-        dateRange: bookings[key].dateRange,
-        totalPrice: bookings[key].totalPrice,
-        listingId: bookings[key].listingId,
-        status: bookings[key].status,
-      })),
-    );
-  });
-
-export const removeBooking = (bookingId) =>
-  resourceLock((resolve, reject) => {
-    delete bookings[bookingId];
-    resolve();
-  });
-
-export const acceptBooking = (owner, bookingId) =>
-  resourceLock((resolve, reject) => {
-    if (!(bookingId in bookings)) {
-      return reject(new InputError('Invalid booking ID'));
-    } else if (
-      Object.keys(listings).find((key) => key === bookings[bookingId].listingId && listings[key].owner === owner) ===
-      undefined
-    ) {
-      return reject(new InputError("Cannot accept bookings for a listing that isn't yours"));
-    } else if (bookings[bookingId].status === 'accepted') {
-      return reject(new InputError('Booking has already been accepted'));
-    } else if (bookings[bookingId].status === 'declined') {
-      return reject(new InputError('Booking has already been declined'));
-    } else {
-      bookings[bookingId].status = 'accepted';
-      resolve();
-    }
-  });
-
-export const declineBooking = (owner, bookingId) =>
-  resourceLock((resolve, reject) => {
-    if (!(bookingId in bookings)) {
-      return reject(new InputError('Invalid booking ID'));
-    } else if (
-      Object.keys(listings).find((key) => key === bookings[bookingId].listingId && listings[key].owner === owner) ===
-      undefined
-    ) {
-      return reject(new InputError("Cannot accept bookings for a listing that isn't yours"));
-    } else if (bookings[bookingId].status === 'declined') {
-      return reject(new InputError('Booking has already been declined'));
-    } else if (bookings[bookingId].status === 'accepted') {
-      return reject(new InputError('Booking has already been accepted'));
-    } else {
-      bookings[bookingId].status = 'declined';
-      resolve();
-    }
-  });
+  await bookingRef.update({ status: 'declined' });
+}
